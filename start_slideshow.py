@@ -41,6 +41,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 PROJECT_DIR = Path(__file__).resolve().parent
 SNIFFER_DIR = PROJECT_DIR / "Sniffer"
 RUN_SYSTEM_SCRIPT = SNIFFER_DIR / "run_system.py"
+TERMINAL_EMULATORS = (
+	("x-terminal-emulator", "-e"),
+	("gnome-terminal", "--"),
+	("konsole", "-e"),
+	("xfce4-terminal", "--command"),
+	("xterm", "-e"),
+)
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
 VRIJMIBO_FILENAME = "vrijmibo.gif"
@@ -50,6 +57,24 @@ AUDIO_OFFSETS = {
 	"live-is-life.mp3": 0.0,
 	"toby.mp3": 0.0,
 }
+
+
+def start_system_terminal() -> subprocess.Popen[bytes]:
+	for terminal_name, option in TERMINAL_EMULATORS:
+		terminal = shutil.which(terminal_name)
+		if terminal is not None:
+			return subprocess.Popen(
+				[
+					terminal,
+					option,
+					sys.executable,
+					str(RUN_SYSTEM_SCRIPT),
+				],
+				cwd=SNIFFER_DIR,
+				start_new_session=True,
+			)
+
+	raise OSError("No supported terminal emulator was found")
 
 
 class Slideshow:
@@ -419,15 +444,9 @@ def main() -> None:
 		print(f"Quote image not found yet; it will be generated: {quote_image}", file=sys.stderr)
 
 	try:
-		system_process = subprocess.Popen(
-			[sys.executable, str(RUN_SYSTEM_SCRIPT)],
-			cwd=SNIFFER_DIR,
-			stdout=subprocess.DEVNULL,
-			stderr=subprocess.DEVNULL,
-			start_new_session=True,
-		)
+		system_process = start_system_terminal()
 	except OSError as error:
-		raise SystemExit(f"Could not start sniffer system: {error}") from error
+		raise SystemExit(f"Could not open terminal for run_system.py: {error}") from error
 	print("run_system.py started successfully.")
 
 	root = tk.Tk()
