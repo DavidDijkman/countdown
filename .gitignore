@@ -1,0 +1,13 @@
+.pio
+.vscode/.browse.c_cpp.db*
+.vscode/ipch
+__pycache__
+*.png
+*.wav
+*.mp3
+*.ps1
+*.onnx
+*.json
+*.sjonl
+*.csv
+*.ini
