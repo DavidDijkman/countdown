@@ -101,6 +101,7 @@ class Slideshow:
 			self.vrijmibo_index = len(self.images)
 			self.images.append(vrijmibo_image)
 
+		root.title("slideshow")
 		root.configure(background="black", cursor="none")
 		root.attributes("-fullscreen", True)
 		root.bind("<Escape>", lambda _event: root.destroy())
