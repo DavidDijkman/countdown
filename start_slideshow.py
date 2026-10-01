@@ -100,6 +100,7 @@ class Slideshow:
 		self.last_audio_date: date | None = None
 		self.audio_process: subprocess.Popen[bytes] | None = None
 		self.system_process = system_process
+		self.closed = False
 		self.seconds = seconds
 		self.index = 0
 		self.paused = False
@@ -129,8 +130,8 @@ class Slideshow:
 		root.title("slideshow")
 		root.configure(background="black", cursor="none")
 		root.attributes("-fullscreen", True)
-		root.bind("<Escape>", lambda _event: root.destroy())
-		root.bind("q", lambda _event: root.destroy())
+		root.bind("<Escape>", lambda _event: self.close())
+		root.bind("q", lambda _event: self.close())
 		root.bind("<space>", self.toggle_pause)
 		root.bind("<Right>", self.next_image)
 		root.bind("<Down>", self.next_image)
@@ -196,15 +197,24 @@ class Slideshow:
 		)
 
 	def close(self) -> None:
+		if self.closed:
+			return
+		self.closed = True
 		if self.audio_process is not None and self.audio_process.poll() is None:
 			self.audio_process.terminate()
 		if self.system_process is not None and self.system_process.poll() is None:
 			try:
-				os.killpg(self.system_process.pid, signal.SIGINT)
+				os.killpg(self.system_process.pid, signal.SIGTERM)
 				self.system_process.wait(timeout=5)
 			except (OSError, subprocess.TimeoutExpired):
-				self.system_process.terminate()
-		self.root.destroy()
+				try:
+					os.killpg(self.system_process.pid, signal.SIGKILL)
+				except OSError:
+					self.system_process.terminate()
+		try:
+			self.root.destroy()
+		except tk.TclError:
+			pass
 
 	def display_current(self, _event: tk.Event | None = None) -> None:
 		if not self.images:
@@ -460,8 +470,13 @@ def main() -> None:
 		audio,
 		system_process,
 	)
-	signal.signal(signal.SIGINT, lambda _signum, _frame: slideshow.close())
-	root.mainloop()
+	shutdown = lambda _signum, _frame: slideshow.close()
+	signal.signal(signal.SIGINT, shutdown)
+	signal.signal(signal.SIGTERM, shutdown)
+	try:
+		root.mainloop()
+	finally:
+		slideshow.close()
 
 
 if __name__ == "__main__":
