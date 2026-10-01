@@ -51,6 +51,7 @@ TERMINAL_EMULATORS = (
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
 VRIJMIBO_FILENAME = "vrijmibo.gif"
+SNIFFER_FILENAME = "sniffer_slide.png"
 AUDIO_OFFSETS = {
 	"gdn.sci.090701.sc.moon-countdown-launch.mp3": 0.0,
 	"i-said-hey.mp3": 0.0,
@@ -82,6 +83,7 @@ class Slideshow:
 		self,
 		root: tk.Tk,
 		images: list[Path],
+		image_folder: Path,
 		seconds: float,
 		shuffle: bool,
 		quote_image: Path | None = None,
@@ -91,6 +93,7 @@ class Slideshow:
 	) -> None:
 		self.root = root
 		self.images = images[:]
+		self.image_folder = image_folder
 		self.quote_image = quote_image
 		self.vrijmibo_image = vrijmibo_image
 		self.quote_generated_index: int | None = None
@@ -217,6 +220,7 @@ class Slideshow:
 			pass
 
 	def display_current(self, _event: tk.Event | None = None) -> None:
+		self.refresh_images()
 		if not self.images:
 			return
 
@@ -238,6 +242,17 @@ class Slideshow:
 		else:
 			self.quote_generated_index = None
 		path = self.images[self.index]
+		if path.name.lower() == SNIFFER_FILENAME:
+			try:
+				with Image.open(path) as image:
+					self.photo = self.show_frame(image)
+			except (OSError, EOFError, ValueError) as error:
+				print(f"Skipping {path}: {error}", file=sys.stderr)
+				self.next_image()
+				return
+			self.show_photo()
+			self.schedule_next()
+			return
 		if path in self.cached_animations:
 			self.animation_photos, self.animation_durations = [
 				list(cached) for cached in self.cached_animations[path]
@@ -270,7 +285,7 @@ class Slideshow:
 
 	def preprocess_images(self) -> None:
 		for path in self.images:
-			if path == self.quote_image:
+			if path == self.quote_image or path.name.lower() == SNIFFER_FILENAME:
 				continue
 			try:
 				with Image.open(path) as image:
@@ -288,6 +303,16 @@ class Slideshow:
 						self.cached_photos[path] = self.show_frame(image)
 			except (OSError, EOFError, ValueError) as error:
 				print(f"Could not preprocess {path}: {error}", file=sys.stderr)
+
+	def refresh_images(self) -> None:
+		current_path = self.images[self.index] if self.images else None
+		new_images = find_images(self.image_folder)
+		if self.vrijmibo_image is not None:
+			new_images = [path for path in new_images if path != self.vrijmibo_image]
+		known_images = set(self.images)
+		self.images.extend(path for path in new_images if path not in known_images)
+		if current_path in self.images:
+			self.index = self.images.index(current_path)
 
 	def show_frame(self, image: Image.Image, fit_to_screen: bool = True) -> ImageTk.PhotoImage:
 		image = ImageOps.exif_transpose(image).convert("RGB")
@@ -463,6 +488,7 @@ def main() -> None:
 	slideshow = Slideshow(
 		root,
 		images,
+		folder,
 		args.seconds,
 		args.shuffle,
 		quote_image,

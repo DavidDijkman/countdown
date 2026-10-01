@@ -256,7 +256,7 @@ for y_index, naam in enumerate(unieke_namen):
         end_num = mdates.date2num(end)
         width = end_num - start_num
 
-        height = 0.75 / np.sqrt(len(unieke_namen))
+        height = 0.9
         y_pos = y_index - (height / 2)
 
         marker_specs.append(
