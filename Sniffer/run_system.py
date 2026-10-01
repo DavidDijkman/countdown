@@ -5,6 +5,7 @@ import sys
 import os
 import shlex
 
+UPDATE_INTERVAL_SECONDS = 300
 PIO_PYTHON = "/home/scriptcie/.platformio/penv/bin/python"
 
 
@@ -93,7 +94,6 @@ print("  ESP32 SNIFFER & LIVE PLOTTER SCRIPT")
 print("=" * 60)
 
 # 1. Start the logging script in the background
-print("🚀 Step 1: Starting the logging system in the background...")
 log_command = [LOGGER_PYTHON, "filter_logs.py"] + arguments
 voice_command = [LOGGER_PYTHON, "voice_announcer.py"]
 
@@ -101,20 +101,16 @@ voice_process = subprocess.Popen(voice_command)
 log_process = subprocess.Popen(log_command)
 
 print("   Port ttyUSB0 opened and logging live data.")
-print("   The graph will now refresh automatically every 30 seconds.")
-print("   Press Ctrl+C to stop the ENTIRE system safely.\n")
 print("-" * 60)
 
-# 2. Start the infinite loop to generate the graph every 5 minutes
+# 2. Start the infinite loop to generate the graph
 try:
     # Generate an initial graph immediately at startup
     print(f"[{time.strftime('%H:%M:%S')}] Generating initial graph...")
     subprocess.run([PLOTTER_PYTHON, "plot_activity.py"])
     
     while True:
-        # Wait 30 seconds (300 seconds)
-        # Tip: Change 30 to 300 to test plotting every 300 seconds.
-        time.sleep(300) 
+        time.sleep(UPDATE_INTERVAL_SECONDS) 
         
         print(f"\n[{time.strftime('%H:%M:%S')}] 5 minutes elapsed. Updating graph live...")
         
