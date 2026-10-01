@@ -10,6 +10,7 @@ move between images.
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import signal
 import shutil
@@ -38,6 +39,8 @@ except ImportError as error:
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 PROJECT_DIR = Path(__file__).resolve().parent
+SNIFFER_DIR = PROJECT_DIR / "Sniffer"
+RUN_SYSTEM_SCRIPT = SNIFFER_DIR / "run_system.py"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
 VRIJMIBO_FILENAME = "vrijmibo.gif"
@@ -59,6 +62,7 @@ class Slideshow:
 		quote_image: Path | None = None,
 		vrijmibo_image: Path | None = None,
 		audio: list[Path] | None = None,
+		system_process: subprocess.Popen[bytes] | None = None,
 	) -> None:
 		self.root = root
 		self.images = images[:]
@@ -70,6 +74,7 @@ class Slideshow:
 		self.audio = audio or []
 		self.last_audio_date: date | None = None
 		self.audio_process: subprocess.Popen[bytes] | None = None
+		self.system_process = system_process
 		self.seconds = seconds
 		self.index = 0
 		self.paused = False
@@ -167,6 +172,12 @@ class Slideshow:
 	def close(self) -> None:
 		if self.audio_process is not None and self.audio_process.poll() is None:
 			self.audio_process.terminate()
+		if self.system_process is not None and self.system_process.poll() is None:
+			try:
+				os.killpg(self.system_process.pid, signal.SIGINT)
+				self.system_process.wait(timeout=5)
+			except (OSError, subprocess.TimeoutExpired):
+				self.system_process.terminate()
 		self.root.destroy()
 
 	def display_current(self, _event: tk.Event | None = None) -> None:
@@ -406,8 +417,29 @@ def main() -> None:
 	if not quote_image.is_file():
 		print(f"Quote image not found yet; it will be generated: {quote_image}", file=sys.stderr)
 
+	try:
+		system_process = subprocess.Popen(
+			[sys.executable, str(RUN_SYSTEM_SCRIPT)],
+			cwd=SNIFFER_DIR,
+			stdout=subprocess.DEVNULL,
+			stderr=subprocess.DEVNULL,
+			start_new_session=True,
+		)
+	except OSError as error:
+		raise SystemExit(f"Could not start sniffer system: {error}") from error
+	print("run_system.py started successfully.")
+
 	root = tk.Tk()
-	slideshow = Slideshow(root, images, args.seconds, args.shuffle, quote_image, vrijmibo_image, audio)
+	slideshow = Slideshow(
+		root,
+		images,
+		args.seconds,
+		args.shuffle,
+		quote_image,
+		vrijmibo_image,
+		audio,
+		system_process,
+	)
 	signal.signal(signal.SIGINT, lambda _signum, _frame: slideshow.close())
 	root.mainloop()
 
