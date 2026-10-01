@@ -50,19 +50,22 @@ LOG_RETENTION_DAYS = 7
 LOG_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 ENABLE_VOICE_ANNOUNCEMENTS = True
 VOICE_QUEUE_FILENAME = 'voice_queue.jsonl'
+FILTER_RELOAD_INTERVAL = 300
 
-# 1. Load filter.json so known devices can always receive a name
-mac_to_name = {}
 
-try:
+def load_filter_names():
     with open('filter.json', 'r') as f:
         allowed_devices = json.load(f)
 
-    mac_to_name = {
+    return {
         device['mac'].upper(): device['ssid']
         for device in allowed_devices
         if 'mac' in device and 'ssid' in device
     }
+
+# 1. Load filter.json so known devices can always receive a name
+try:
+    mac_to_name = load_filter_names()
 
     if DISABLE_FILTER:
         print(
@@ -177,11 +180,22 @@ cleanup_log_file(output_filename)
 last_cleanup_date = time.strftime('%Y-%m-%d')
 announced_names = load_announced_names(output_filename)
 log_file = open(output_filename, 'a')
+last_filter_reload = time.monotonic()
 
 # 3. Listen to the ESP32 live and process the data
 try:
     while True:
         try:
+            if time.monotonic() - last_filter_reload >= FILTER_RELOAD_INTERVAL:
+                last_filter_reload = time.monotonic()
+                try:
+                    mac_to_name = load_filter_names()
+                    print(
+                        f"🔄 Reloaded filter.json: {len(mac_to_name)} devices loaded"
+                    )
+                except Exception as error:
+                    print(f"⚠️ Could not reload filter.json: {error}")
+
             current_date = time.strftime('%Y-%m-%d')
             if current_date != last_cleanup_date:
                 log_file.close()
