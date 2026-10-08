@@ -76,11 +76,6 @@ def main() -> None:
 	if args.seconds <= 0:
 		raise SystemExit("--seconds must be greater than zero")
 
-
-	quote_image = PROJECT_DIR / "quotes" / "images" / "quote.png"
-	if not quote_image.is_file():
-		print(f"Quote image not found yet; it will be generated: {quote_image}", file=sys.stderr)
-
 	try:
 		start_sniffer()
 	except OSError as error:
@@ -96,7 +91,7 @@ def main() -> None:
 	
 	try:
 		root.mainloop()
-	finally:
+	except (Exception):
 		slideshow.close()
 
 
