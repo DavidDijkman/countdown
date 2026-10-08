@@ -35,8 +35,8 @@ except ImportError as error:
 		"sudo apt install python3-pil.imagetk"
 	) from error
 
-from slideshow.countdown.countdown import Slideshow
-from slideshow.config import *
+from countdown.slideshow.slideshow import Slideshow
+from countdown.config import *
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
